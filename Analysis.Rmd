@@ -1,0 +1,613 @@
+---
+title: "Schools Social Network Analysis"
+author: "Andrew J K Conlan"
+date: "20/08/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,cache=TRUE)
+```
+
+## Load and tidy data sets
+
+```{r load_and_tidy, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+require(tidyverse)
+require(tidygraph)
+require(ggplot2)
+require(ggraph)
+require(patchwork)
+require(RColorBrewer)
+
+
+schools_node <- as_tibble(read.csv('./data/schools_node.csv'))  %>% select(-X)
+schools_node <- schools_node %>% rename(name=study_id) %>% mutate(name=as.character(name))
+
+schools_edge <- as_tibble(read.csv('./data/schools_edge.csv'))  %>% select(-X)
+
+schools_edge <- schools_edge %>% pivot_longer(starts_with('contact'),values_to='to',values_drop_na=TRUE) %>% 
+    rename(from = study_id) %>% relocate(from,.before=to) %>%
+  mutate(from=as.character(from),to=as.character(to))
+
+# Remove loops for school 1, year 1 (typos)
+
+schools_edge <- schools_edge %>% filter(from!=to)
+
+# Convert agg_contacts1 to integer, stripping ambigous text answers and setting to NA
+
+schools_node <- schools_node %>% mutate(agg_contacts1 = as.integer(agg_contacts1))
+
+# Prevalence by School, Year (Positive in either year)
+
+school_prev <- (schools_node %>% group_by(school,year) %>% summarise(p=sum(isolate_1 | isolate_2),n=length(isolate_1))) %>% drop_na()
+
+require(prevalence) 
+
+school_prev <- propCI(school_prev$p,school_prev$n,method='exact') %>% select(-method,-level) %>% mutate(school=school_prev$school,year=school_prev$year,.before=1) %>% mutate_each(funs(round(100*., 0)),-school,-year,-x,-n)
+
+write.csv(school_prev,file='school_prev_by_year.csv')
+
+# Prevalence by school, year, gender (Positive in either year)
+
+school_prev <- (schools_node %>% group_by(school,year,sex) %>% summarise(p=sum(isolate_1 | isolate_2),n=length(isolate_1))) %>% drop_na()
+
+school_prev <- propCI(school_prev$p,school_prev$n,method='exact') %>% select(-method,-level) %>% mutate(school=school_prev$school,year=school_prev$year,sex=school_prev$sex,.before=1) %>% mutate_each(funs(round(100*., 0)),-school,-year,-sex,-x,-n)
+
+write.csv(school_prev,file='school_prev_by_gender.csv')
+
+# Prevalence by school, year, gender, age  (Positive in either year)
+school_prev <- (schools_node %>% group_by(school,year,school_year) %>% summarise(p=sum(isolate_1 | isolate_2),n=length(isolate_1))) %>% drop_na()
+
+school_prev <- propCI(school_prev$p,school_prev$n,method='exact') %>% select(-method,-level) %>% mutate(school=school_prev$school,year=school_prev$year,school_year=school_prev$school_year,.before=1) %>% mutate_each(funs(round(100*., 0)),-school,-year,-school_year,-x,-n)
+
+write.csv(school_prev,file='school_prev_by_age.csv')
+
+# Prevalence by School, Year, Round
+
+schools_tab <- schools_node %>% 
+  select(-isolate_2,-CC_2) %>% 
+  rename(isolate=isolate_1,CC=CC_1) %>%
+  mutate(round=1,.after=year)
+
+schools_tab <- schools_tab %>% bind_rows(schools_node %>% 
+  select(-isolate_1,-CC_1) %>% 
+  rename(isolate=isolate_2,CC=CC_2) %>%
+  mutate(round=2,.after=year))
+
+school_prev <- (schools_tab %>% group_by(school,year,round) %>% summarise(p=sum(isolate),n=length(isolate))) %>% drop_na()
+
+school_prev <- propCI(school_prev$p,school_prev$n,method='exact') %>% select(-method,-level) %>% mutate(school=school_prev$school,year=school_prev$year,year=school_prev$year,.before=1) %>% mutate_each(funs(round(100*., 0)),-school,-year,-year,-x,-n)
+
+write.csv(school_prev,file='school_prev_by_year+year.csv')
+
+# Make data set for logistic regression model (aggregate year1/year2 results)
+
+schools_agg <- schools_node %>% mutate(isolate = (isolate_1 | isolate_2)) %>% 
+  mutate(school=as.factor(school),year=as.factor(year), school_year=as.factor(school_year),sex=as.factor(sex),shares_drinks=as.factor(shares_drinks), class=as.factor(class)) %>% 
+  drop_na(school,year,school_year,sex,shares_drinks,isolate,class) %>% 
+  select(school, year, name,school_year, sex,shares_drinks,isolate,class)
+
+```
+
+## Risk Factor Analysis
+
+```{r glm_fit, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+
+# Maximal model, try interaction terms between year and school, school and age
+m1 <- glm(isolate ~ year + school + school_year + sex + shares_drinks,data=schools_agg,family='binomial')
+# Forwards and backwards model selection
+m2 <- step(m1,direction='both')
+
+require(gtsummary)
+tbl_regression(m2,exponentiate=TRUE)
+require(performance)
+# Explanatory power as measured by Tjur's R2 (weak)
+r2_tjur(m2)
+
+```
+
+
+## Network Plots
+
+### Strain Type
+
+```{r type_plot, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE, fig.path='Figs/',fig.width=8, fig.height=0.85*8}
+
+type_levels <- na.omit(unique(c(schools_node$CC_1,schools_node$CC_2)))
+schools_node <- schools_node %>% mutate(CC_1=factor(CC_1,levels=type_levels),CC_2=factor(CC_2,levels=type_levels))
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==1 & year==1) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==1 & year==1) %>% select(from,to))
+
+type_p1 <- net_schools %>% 
+  ggraph(layout='nicely') + geom_node_point(aes(col=CC_1, shape=CC_1)) + 
+  geom_edge_link(alpha=0.1) + ggtitle('School 1','Year 1') + 
+  scale_color_discrete(name='Type',labels=type_levels,drop=FALSE) +
+  scale_shape_manual(name='Type',values=c(1:length(type_levels)),labels=type_levels,drop=FALSE)
+
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==1 & year==2) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==1 & year==2) %>% select(from,to))
+
+type_p2 <- net_schools %>% 
+  ggraph(layout='nicely') + geom_node_point(aes(col=CC_1, shape=CC_1)) + 
+  geom_edge_link(alpha=0.1) + ggtitle('School 1','Year 2') +
+  scale_color_discrete(name='Type',labels=type_levels,drop=FALSE) +
+  scale_shape_manual(name='Type',values=c(1:length(type_levels)),labels=type_levels,drop=FALSE)
+
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==2 & year==1) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==2 & year==1) %>% select(from,to))
+
+type_p3 <- net_schools %>% 
+  ggraph(layout='nicely') + geom_node_point(aes(col=CC_1, shape=CC_1)) + 
+  geom_edge_link(alpha=0.1) + ggtitle('School 2','Year 1') + 
+  scale_color_discrete(name='Type',labels=type_levels,drop=FALSE) +
+  scale_shape_manual(name='Type',values=c(1:length(type_levels)),labels=type_levels,drop=FALSE)
+
+
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==2 & year==2) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==2 & year==2) %>% select(from,to))
+
+type_p4 <- net_schools %>% 
+  ggraph(layout='nicely') + geom_node_point(aes(col=CC_1, shape=CC_1)) + 
+  geom_edge_link(alpha=0.1) + ggtitle('School 2','Year 2') + 
+  scale_color_discrete(name='Type',labels=type_levels,drop=FALSE) +
+  scale_shape_manual(name='Type',values=c(1:length(type_levels)),labels=type_levels,drop=FALSE)
+
+# net_schools_ref <-tbl_graph(nodes = schools_ref_node %>% filter(school==4),edges=schools_ref_edge %>% filter(school==4))
+# 
+# net_schools_ref %>% 
+#   ggraph(layout='nicely') + geom_node_point(aes(col=factor(sex))) + geom_edge_link(aes(alpha=weight))
+
+print( ((type_p1 + type_p2) / (type_p3 + type_p4)) + plot_layout(guides='collect')) 
+#&theme(legend.position='bottom')
+```
+
+### School Year
+
+```{r schoolyear_plot, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE, fig.path='Figs/',fig.width=8, fig.height=8*0.85}
+
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==1 & year==1) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==1 & year==1) %>% select(from,to))
+
+schoolyear_p1 <- net_schools %>% 
+  ggraph(layout='nicely') + geom_node_point(aes(col=as.factor(school_year), shape=as.factor(school_year))) + 
+  geom_edge_link(alpha=0.1) + ggtitle('School 1','Year 1') + 
+  scale_color_discrete(name='School Year') +
+  scale_shape(name='School Year')
+
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==1 & year==2) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==1 & year==2) %>% select(from,to))
+
+schoolyear_p2 <- net_schools %>% 
+  ggraph(layout='nicely') + geom_node_point(aes(col=as.factor(school_year), shape=as.factor(school_year))) + 
+  geom_edge_link(alpha=0.1) + ggtitle('School 1','Year 2') + 
+  scale_color_discrete(name='School Year') +
+  scale_shape(name='School Year')
+
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==2 & year==1) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==2 & year==1) %>% select(from,to))
+
+schoolyear_p3 <- net_schools %>% 
+  ggraph(layout='nicely') + geom_node_point(aes(col=as.factor(school_year), shape=as.factor(school_year))) + 
+  geom_edge_link(alpha=0.1) + ggtitle('School 2','Year 1') + 
+  scale_color_discrete(name='School Year') +
+  scale_shape(name='School Year')
+
+
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==2 & year==2) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==2 & year==2) %>% select(from,to))
+
+schoolyear_p4 <- net_schools %>% 
+  ggraph(layout='nicely') + geom_node_point(aes(col=as.factor(school_year), shape=as.factor(school_year))) + 
+  geom_edge_link(alpha=0.1) + ggtitle('School 2','Year 2') + 
+  scale_color_discrete(name='School Year') +
+  scale_shape(name='School Year')
+
+# net_schools_ref <-tbl_graph(nodes = schools_ref_node %>% filter(school==4),edges=schools_ref_edge %>% filter(school==4))
+# 
+# net_schools_ref %>% 
+#   ggraph(layout='nicely') + geom_node_point(aes(col=factor(sex))) + geom_edge_link(aes(alpha=weight))
+
+print( ((schoolyear_p1 + schoolyear_p2) / (schoolyear_p3 + schoolyear_p4)) + plot_layout(guides='collect')) 
+#&theme(legend.position='bottom')
+```
+
+### Gender segregation
+
+```{r sex_plot, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE, fig.path='Figs/',fig.width=8, fig.height=8*0.85}
+
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==1 & year==1) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==1 & year==1) %>% select(from,to))
+
+sex_p1 <- net_schools %>% 
+  ggraph(layout='nicely') + geom_node_point(aes(col=sex, shape=sex)) + 
+  geom_edge_link(alpha=0.1) + ggtitle('School 1','Year 1') + 
+  scale_color_discrete(name='Gender') +
+  scale_shape(name='Gender')
+
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==1 & year==2) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==1 & year==2) %>% select(from,to))
+
+sex_p2 <- net_schools %>% 
+  ggraph(layout='nicely') + geom_node_point(aes(col=sex, shape=sex)) + 
+  geom_edge_link(alpha=0.1) + ggtitle('School 1','Year 2') + 
+  scale_color_discrete(name='Gender') +
+  scale_shape(name='Gender')
+
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==2 & year==1) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==2 & year==1) %>% select(from,to))
+
+sex_p3 <- net_schools %>% 
+  ggraph(layout='nicely') + geom_node_point(aes(col=sex, shape=sex)) + 
+  geom_edge_link(alpha=0.1) + ggtitle('School 2','Year 1') + 
+  scale_color_discrete(name='Gender') +
+  scale_shape(name='Gender')
+
+
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==2 & year==2) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==2 & year==2) %>% select(from,to))
+
+sex_p4 <- net_schools %>% 
+  ggraph(layout='nicely') + geom_node_point(aes(col=sex, shape=sex)) + 
+  geom_edge_link(alpha=0.1) + ggtitle('School 2','Year 2') + 
+  scale_color_discrete(name='Gender') +
+  scale_shape(name='Gender')
+
+# net_schools_ref <-tbl_graph(nodes = schools_ref_node %>% filter(school==4),edges=schools_ref_edge %>% filter(school==4))
+# 
+# net_schools_ref %>% 
+#   ggraph(layout='nicely') + geom_node_point(aes(col=factor(sex))) + geom_edge_link(aes(alpha=weight))
+
+print( ((sex_p1 + sex_p2) / (sex_p3 + sex_p4)) + plot_layout(guides='collect')) 
+#&theme(legend.position='bottom')
+```
+
+### Sharing Drinks
+
+```{r drink_plot, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE, fig.path='Figs/',fig.width=8, fig.height=8*0.85}
+
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==1 & year==1) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==1 & year==1) %>% select(from,to))
+
+drink_p1 <- net_schools %>% 
+  ggraph(layout='nicely') + geom_node_point(aes(col=shares_drinks, shape=shares_drinks)) + 
+  geom_edge_link(alpha=0.1) + ggtitle('School 1','Year 1') + 
+  scale_color_discrete(name='Shares Drinks') +
+  scale_shape(name='Shares Drinks')
+
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==1 & year==2) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==1 & year==2) %>% select(from,to))
+
+drink_p2 <- net_schools %>% 
+  ggraph(layout='nicely') + geom_node_point(aes(col=shares_drinks, shape=shares_drinks)) + 
+  geom_edge_link(alpha=0.1) + ggtitle('School 1','Year 2') + 
+  scale_color_discrete(name='Shares Drinks') +
+  scale_shape(name='Shares Drinks')
+
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==2 & year==1) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==2 & year==1) %>% select(from,to))
+
+drink_p3 <- net_schools %>% 
+  ggraph(layout='nicely') + geom_node_point(aes(col=shares_drinks, shape=shares_drinks)) + 
+  geom_edge_link(alpha=0.1) + ggtitle('School 2','Year 1') + 
+  scale_color_discrete(name='Shares Drinks') +
+  scale_shape(name='Shares Drinks')
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==2 & year==2) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==2 & year==2) %>% select(from,to))
+
+drink_p4 <- net_schools %>% 
+  ggraph(layout='nicely') + geom_node_point(aes(col=shares_drinks, shape=shares_drinks)) + 
+  geom_edge_link(alpha=0.1) + ggtitle('School 2','Year 2') + 
+  scale_color_discrete(name='Shares Drinks') +
+  scale_shape(name='Shares Drinks')
+
+# net_schools_ref <-tbl_graph(nodes = schools_ref_node %>% filter(school==4),edges=schools_ref_edge %>% filter(school==4))
+# 
+# net_schools_ref %>% 
+#   ggraph(layout='nicely') + geom_node_point(aes(col=factor(sex))) + geom_edge_link(aes(alpha=weight))
+
+print( ((drink_p1 + drink_p2) / (drink_p3 + drink_p4)) + plot_layout(guides='collect')) 
+#&theme(legend.position='bottom')
+```
+
+### Single School, Comparisons (Main Manuscript)
+
+```{r social_summary_plot, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE, fig.path='Figs/',fig.width=10, fig.height=10*0.95}
+
+require(igraph)
+
+net_schools <-tbl_graph(edges=schools_edge %>% filter(school==1 & year==1) %>% select(from,to))
+
+net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_node) %>% select(-school,-year),
+                        edges = schools_edge %>% filter(school==1 & year==1) %>% select(from,to))
+# 
+# net_igraph <- graph_from_data_frame(schools_edge %>% filter(school==1 & year==1) %>% select(from,to),directed=F)
+# 
+# fixed_layout<-layout_nicely(net_igraph)
+fixed_layout <- create_layout(graph = net_schools, layout = 'nicely')
+
+summary_p1 <- net_schools %>% 
+  ggraph(layout=fixed_layout) + geom_node_point(aes(col=CC_1, shape=CC_1)) + 
+  geom_edge_link(alpha=0.1) + 
+  scale_color_discrete(name='Type',labels=type_levels) +
+  scale_shape_manual(name='Type',values=c(1:length(type_levels)),labels=type_levels) + ggtitle('Strain Type')
+
+summary_p2 <- net_schools %>% 
+  ggraph(layout=fixed_layout) + geom_node_point(aes(col=sex, shape=sex)) + 
+  geom_edge_link(alpha=0.1) + 
+  scale_color_manual(name='Gender',values=brewer.pal(8,'Set1')[c(1,3)]) +
+  scale_shape_manual(name='Gender',values=c(18,19))  + ggtitle('Gender')     
+
+summary_p3 <- net_schools %>% 
+  ggraph(layout=fixed_layout) + geom_node_point(aes(col=shares_drinks, shape=shares_drinks)) + 
+  geom_edge_link(alpha=0.1) +
+   scale_color_manual(name='Shares Drinks',values=brewer.pal(8,'Accent')[c(5,6)]) +
+  scale_shape_manual(name='Shares Drinks',values=c(15,17)) + ggtitle('Shares Drinks')     
+
+summary_p4 <- net_schools %>% 
+  ggraph(layout=fixed_layout) + geom_node_point(aes(col=as.factor(school_year), shape=as.factor(school_year))) + 
+  geom_edge_link(alpha=0.1) +
+   scale_color_manual(name='School Year',values=brewer.pal(4,'Dark2')) +
+  scale_shape_manual(name='School Year',values=c(21,22,23,24)) + ggtitle('School Year')    
+
+
+#print((summary_p2 / summary_p3) - summary_p1)
+
+(summary_p1 + summary_p4) / (summary_p2 + summary_p3) + plot_layout(guides='collect')
+
+```
+
+## Network statistics
+
+```{r interaction_boot, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE,cache=TRUE}
+
+num_boot = 10000
+
+schools_tidy <- schools_edge %>% left_join(schools_node,by=c('from'= 'name','school','year')) 
+
+net_summary <- function(net)
+{
+  boys <- induced_subgraph(net,V(net)$sex=='M')
+  girls <- induced_subgraph(net,V(net)$sex=='F')
+  y<-cluster_walktrap(net)
+  return(tibble(diameter = diameter(igraph_net),
+                transitivity = transitivity(net),
+                assortativity_s = assortativity(net,factor(V(net)$sex)),
+                assortativity_d = assortativity(net,factor(V(net)$shares_drinks)),
+                assortativity_dm = assortativity(boys,factor(V(boys)$shares_drinks)),
+                assortativity_df = assortativity(girls,factor(V(girls)$shares_drinks)),
+                assortativity_iso1 = assortativity(net, V(net)$isolate_1),
+                assortativity_iso2 = assortativity(net, V(net)$isolate_2),
+                assortativity_year = assortativity(net,factor(V(net)$school_year)),
+                mutual = reciprocity(net),
+                mean_dist = mean_distance(net),
+                mean_degree = mean(igraph::degree(igraph_net)),
+                communities_walk = max(y$membership),
+                part_per_walk    = mean(tapply(y$membership,y$membership,sum))))
+}
+
+expected_edges <- schools_tidy %>% group_by(school,year) %>% summarise(edges=length(from), nodes=length(unique(c(from,to))),participants=length(unique(from))) 
+
+#expected_edges <- expected_edges %>% bind_rows(
+#expected_edges %>% filter(school==1) %>% select(school,year) %>% ungroup() %>%
+#    bind_cols(expected_edges %>% filter(school==2) %>% ungroup() %>% select(edges)))
+
+#expected_edges <- expected_edges %>% ungroup() %>%  mutate(school_label = c(1,1,2,2,3,3),.before=everything())
+
+print(expected_edges)
+
+#expected_edges <- expected_edges %>% filter(school==1)
+
+edgelist <- schools_edge %>% filter(school==1 & year == 1) %>% select(-school,-year,-name)
+nodelist <- schools_node %>% filter(school==1 & year == 1) %>% select(-school,-year) 
+
+nodelist <- nodelist %>% bind_rows(tibble(name=unique(edgelist$to[which(!is.element(edgelist$to,nodelist$name))]),
+       school_year = NA,
+       agg_contacts1 = NA,
+       agg_contacts2 = NA,
+       sex = NA,
+       shares_drinks = NA,
+       isolate_1 = NA,
+       CC_1 = NA,
+       isolate_2 = NA,
+       CC_2 = NA))
+
+missing_meta <- nodelist$name[which(is.na(nodelist$sex))]
+
+nodelist <- nodelist %>% filter(!is.element(name,missing_meta))
+edgelist <- edgelist %>% filter(!is.element(from,missing_meta) & !is.element(to,missing_meta))
+
+igraph_net <- graph_from_data_frame(edgelist, 
+                                    vertices = nodelist,directed=TRUE)
+
+x <- net_summary(igraph_net)  %>% mutate(school=expected_edges$school[1],year=expected_edges$year[1],.before=everything())
+
+boot_table <- x[-1,]
+
+for(i in 1:dim(expected_edges)[1])
+{
+
+edgelist <- schools_edge %>% filter(school==expected_edges$school[i] & year == expected_edges$year[i]) %>% select(-school,-year,-name)
+nodelist <- schools_node %>% filter(school==expected_edges$school[i] & year == expected_edges$year[i]) %>% select(-school,-year) 
+
+nodelist <- nodelist %>% bind_rows(tibble(name=unique(edgelist$to[which(!is.element(edgelist$to,nodelist$name))]),
+       school_year = NA,
+       agg_contacts1 = NA,
+       agg_contacts2 = NA,
+       sex = NA,
+       shares_drinks = NA,
+       isolate_1 = NA,
+       CC_1 = NA,
+       isolate_2 = NA,
+       CC_2 = NA))
+
+missing_meta <- nodelist$name[which(is.na(nodelist$sex))]
+
+nodelist <- nodelist %>% filter(!is.element(name,missing_meta))
+edgelist <- edgelist %>% filter(!is.element(from,missing_meta) & !is.element(to,missing_meta))
+
+  
+edgelist <- schools_edge %>% filter(school==expected_edges$school[i] & 
+                                          year == expected_edges$year[i]) %>% select(-school,-year,-name)
+nodelist <- schools_node %>% filter(school==expected_edges$school[i] & 
+                                      year == expected_edges$year[i]) %>% select(-school,-year) 
+
+nodelist <- nodelist %>% bind_rows(tibble(name=unique(edgelist$to[which(!is.element(edgelist$to,nodelist$name))]),
+       school_year = NA,
+       agg_contacts1 = NA,
+       agg_contacts2 = NA,
+       sex = NA,
+       shares_drinks = NA,
+       isolate_1 = NA,
+       CC_1 = NA,
+       isolate_2 = NA,
+       CC_2 = NA))
+
+nodelist <- nodelist %>% filter(!is.element(name,missing_meta))
+edgelist <- edgelist %>% filter(!is.element(from,missing_meta) & !is.element(to,missing_meta))
+
+for(r in 1:num_boot)
+{
+boot_table <- boot_table %>% bind_rows(net_summary(as.igraph(tbl_graph(nodes=nodelist,edges=edgelist %>% sample_n(expected_edges$edges[i],replace=TRUE)))) %>% mutate(school=expected_edges$school[i],year=expected_edges$year[i],.before=everything()))
+}
+}
+
+```
+
+
+```{r boot_plots1, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE, fig.path='Figs/',fig.width=5, fig.height=0.85*5}
+quantiles <- function(x){data.frame(y=median(x),ymin=quantile(x,0.025),ymax=quantile(x,0.975))}
+
+require(patchwork)
+p1=ggplot(boot_table,aes(x=factor(school),y=transitivity,col=factor(year))) + stat_summary(fun.data=quantiles,position=position_dodge(0.5)) + ylab('Clustering Coefficient') +
+  xlab('School') + labs(col='year')
+p2=ggplot(boot_table,aes(x=factor(school),y=mutual,col=factor(year))) + stat_summary(fun.data=quantiles,position=position_dodge(0.5)) + ylab('Reciprocity') +
+  xlab('School') + labs(col='year')
+p3=ggplot(boot_table,aes(x=factor(school),y=mean_dist,col=factor(year))) + stat_summary(fun.data=quantiles,position=position_dodge(0.5)) + ylab('Mean Distance') +
+  xlab('School') + labs(col='year')
+
+
+
+p4=ggplot(boot_table,aes(x=factor(school),y=communities_walk,col=factor(year))) + stat_summary(fun.data=quantiles,position=position_dodge(0.5))+ ylab('No. of Communities')  +
+  xlab('School') + labs(col='year')
+p5=ggplot(boot_table,aes(x=factor(school),y=part_per_walk,col=factor(year))) + stat_summary(fun.data=quantiles,position=position_dodge(0.5))+ ylab('Community Size')  +
+  xlab('School') + labs(col='year')
+
+print((p1 + p2 + p3) / (p4 + p5) + plot_layout(guides = 'collect')  )
+
+```
+
+```{r boot_plots2, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE, fig.path='Figs/',fig.width=8, fig.height=0.65*5}
+
+
+boot_plot <- boot_table %>% filter(school==1) %>% pivot_longer(starts_with('assortativity'))
+
+boot_plot <- boot_plot %>% mutate(name = do.call(c,lapply(strsplit(boot_plot$name,'_'),function(x){x[2]})))
+
+boot_plot <- boot_plot %>% mutate(name = factor(name,levels=c('year','s','d','dm','df','iso1','iso2'),
+                                                labels=c('School Year','Gender','Drinks','Drinks (M)', 'Drinks (F)', 'Swab 1', 'Swab 2')))
+
+
+ggplot(boot_plot,
+       aes(x=factor(name),y=value,col=factor(year))) + stat_summary(fun.data=quantiles,position=position_dodge(0.5))+ ylab('Assortativity') +
+  xlab('') + labs(col='year')
+
+
+```
+
+```{r boot_table, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+boot_table <- boot_table %>% mutate(school=factor(school,levels=c(1,2),labels=c('School 1','School 2')), year = factor(year, levels=c(1,2),labels=c('Year 1', 'Year 2')))
+
+require(gtsummary)
+
+ll <- function(x) quantile(x,0.025)
+ul <- function(x) quantile(x,0.975)
+
+
+boot_table %>% tbl_strata(strata = c(school,year),
+                          .tbl_fun = ~ .x %>% tbl_summary(include=c('transitivity','mutual','mean_dist',
+                                                                    'communities_walk','part_per_walk'),
+                                                          type = list(transitivity ~ 'continuous',
+                                                                      mean_dist ~ 'continuous',
+                                                                      communities_walk ~ 'continuous',
+                                                                      part_per_walk ~ 'continuous'),
+                                                          label=list(transitivity='Clustering Coefficient',
+                                                                     mutual='Reciprocity',
+                                                                     mean_dist='Mean Distance',
+                                                                     communities_walk='No. of Communities',
+                                                                     part_per_walk = 'Community Size'),
+                                                          statistic = list(all_continuous() ~ "{mean} ({ll}, {ul})"))) %>%
+  modify_header(starts_with('stat') ~ "Mean (95% CI)") %>%
+  modify_footnote(everything() ~ NA_character_)
+  
+
+
+boot_table %>% filter(school=='School 1') %>% tbl_summary(include=c('assortativity_year','assortativity_s','assortativity_d',
+                                                                    'assortativity_dm','assortativity_df',
+                                                                    'assortativity_iso1','assortativity_iso2'),
+                                                          type = list(starts_with('assortativity') ~ 'continuous'),
+                                                          label=list(assortativity_year = 'Assortativity (Year)',
+                                                                     assortativity_s = 'Assortativity (Gender)',
+                                                                     assortativity_d = 'Assortativity (Shares Drinks)',
+                                                                     assortativity_dm = 'Assortativity (Shares Drinks M)',
+                                                                     assortativity_df = 'Assortativity (Shares Drinks F)',
+                                                                     assortativity_iso1 = 'Assortativity (Swab 1)',
+                                                                     assortativity_iso2 = 'Assortativity (Swab 2)'),
+                                                          statistic = list(all_continuous() ~ "{mean} ({ll}, {ul})"),
+                                                          by='year') %>% modify_header(stat_1 ~ "Year 1 (95% CI)") %>%
+                                                          modify_header(stat_2 ~ "Year 2 (95% CI)") %>%
+  modify_footnote(everything() ~ NA_character_)
+
+
+starts_with('assortativity') ~ 'continuous'
+
+
+
+```
