@@ -124,8 +124,16 @@ net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_nod
 type_p1 <- net_schools %>% 
   ggraph(layout='nicely') + geom_node_point(aes(col=CC_1, shape=CC_1)) + 
   geom_edge_link(alpha=0.1) + ggtitle('School 1','Year 1') + 
-  scale_color_discrete(name='Type',labels=type_levels,drop=FALSE) +
-  scale_shape_manual(name='Type',values=c(1:length(type_levels)),labels=type_levels,drop=FALSE)
+  scale_color_discrete(name='Sequence Type',labels=type_levels,drop=FALSE, na.translate = F) +
+  scale_shape_manual(name='Sequence Type',values=c(1:length(type_levels)),labels=type_levels,drop=FALSE, na.translate = F) + theme_bw() +
+  theme(axis.title = element_blank()) + 
+  theme(axis.text.x = element_blank()) + 
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15)) +
+  theme(plot.title = element_text(size = 15)) +
+  theme(plot.subtitle = element_text(size = 15)) +
+  theme(axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
 
 
 net_schools <-tbl_graph(edges=schools_edge %>% filter(school==1 & year==2) %>% select(from,to))
@@ -136,8 +144,16 @@ net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_nod
 type_p2 <- net_schools %>% 
   ggraph(layout='nicely') + geom_node_point(aes(col=CC_1, shape=CC_1)) + 
   geom_edge_link(alpha=0.1) + ggtitle('School 1','Year 2') +
-  scale_color_discrete(name='Type',labels=type_levels,drop=FALSE) +
-  scale_shape_manual(name='Type',values=c(1:length(type_levels)),labels=type_levels,drop=FALSE)
+  scale_color_discrete(name='Sequence Type',labels=type_levels,drop=FALSE, na.translate = F) +
+  scale_shape_manual(name='Sequence Type',values=c(1:length(type_levels)),labels=type_levels,drop=FALSE, na.translate = F) + theme_bw() +
+  theme(axis.title = element_blank()) + 
+  theme(axis.text.x = element_blank()) + 
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15)) +
+  theme(plot.title = element_text(size = 15)) +
+  theme(plot.subtitle = element_text(size = 15)) +
+  theme(axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
 
 
 net_schools <-tbl_graph(edges=schools_edge %>% filter(school==2 & year==1) %>% select(from,to))
@@ -148,8 +164,16 @@ net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_nod
 type_p3 <- net_schools %>% 
   ggraph(layout='nicely') + geom_node_point(aes(col=CC_1, shape=CC_1)) + 
   geom_edge_link(alpha=0.1) + ggtitle('School 2','Year 1') + 
-  scale_color_discrete(name='Type',labels=type_levels,drop=FALSE) +
-  scale_shape_manual(name='Type',values=c(1:length(type_levels)),labels=type_levels,drop=FALSE)
+  scale_color_discrete(name='Sequence Type',labels=type_levels,drop=FALSE, na.translate = F) +
+  scale_shape_manual(name='Sequence Type',values=c(1:length(type_levels)),labels=type_levels,drop=FALSE, na.translate = F) + theme_bw() +
+  theme(axis.title = element_blank()) + 
+  theme(axis.text.x = element_blank()) + 
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15)) +
+  theme(plot.title = element_text(size = 15)) +
+  theme(plot.subtitle = element_text(size = 15)) +
+  theme(axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
 
 
 
@@ -161,8 +185,16 @@ net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_nod
 type_p4 <- net_schools %>% 
   ggraph(layout='nicely') + geom_node_point(aes(col=CC_1, shape=CC_1)) + 
   geom_edge_link(alpha=0.1) + ggtitle('School 2','Year 2') + 
-  scale_color_discrete(name='Type',labels=type_levels,drop=FALSE) +
-  scale_shape_manual(name='Type',values=c(1:length(type_levels)),labels=type_levels,drop=FALSE)
+  scale_color_discrete(name='Sequence Type',labels=type_levels,drop=FALSE, na.translate = F) +
+  scale_shape_manual(name='Sequence Type',values=c(1:length(type_levels)),labels=type_levels,drop=FALSE, na.translate = F) + theme_bw() +
+  theme(axis.title = element_blank()) + 
+  theme(axis.text.x = element_blank()) + 
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15)) +
+  theme(plot.title = element_text(size = 15)) +
+  theme(plot.subtitle = element_text(size = 15)) +
+  theme(axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
 
 # net_schools_ref <-tbl_graph(nodes = schools_ref_node %>% filter(school==4),edges=schools_ref_edge %>% filter(school==4))
 # 
@@ -186,8 +218,16 @@ net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_nod
 schoolyear_p1 <- net_schools %>% 
   ggraph(layout='nicely') + geom_node_point(aes(col=as.factor(school_year), shape=as.factor(school_year))) + 
   geom_edge_link(alpha=0.1) + ggtitle('School 1','Year 1') + 
-  scale_color_discrete(name='School Year') +
-  scale_shape(name='School Year')
+  scale_color_discrete(name='School Year', na.translate = F) +
+  scale_shape(name='School Year', na.translate = F) + theme_bw() +
+  theme(axis.title = element_blank()) + 
+  theme(axis.text.x = element_blank()) + 
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15)) +
+  theme(plot.title = element_text(size = 15)) +
+  theme(plot.subtitle = element_text(size = 15)) +
+  theme(axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
 
 
 net_schools <-tbl_graph(edges=schools_edge %>% filter(school==1 & year==2) %>% select(from,to))
@@ -198,8 +238,16 @@ net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_nod
 schoolyear_p2 <- net_schools %>% 
   ggraph(layout='nicely') + geom_node_point(aes(col=as.factor(school_year), shape=as.factor(school_year))) + 
   geom_edge_link(alpha=0.1) + ggtitle('School 1','Year 2') + 
-  scale_color_discrete(name='School Year') +
-  scale_shape(name='School Year')
+  scale_color_discrete(name='School Year', na.translate = F) +
+  scale_shape(name='School Year', na.translate = F) + theme_bw() +
+  theme(axis.title = element_blank()) + 
+  theme(axis.text.x = element_blank()) + 
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15)) +
+  theme(plot.title = element_text(size = 15)) +
+  theme(plot.subtitle = element_text(size = 15)) +
+  theme(axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
 
 
 net_schools <-tbl_graph(edges=schools_edge %>% filter(school==2 & year==1) %>% select(from,to))
@@ -210,8 +258,16 @@ net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_nod
 schoolyear_p3 <- net_schools %>% 
   ggraph(layout='nicely') + geom_node_point(aes(col=as.factor(school_year), shape=as.factor(school_year))) + 
   geom_edge_link(alpha=0.1) + ggtitle('School 2','Year 1') + 
-  scale_color_discrete(name='School Year') +
-  scale_shape(name='School Year')
+  scale_color_discrete(name='School Year', na.translate = F) +
+  scale_shape(name='School Year', na.translate = F) + theme_bw() +
+  theme(axis.title = element_blank()) + 
+  theme(axis.text.x = element_blank()) + 
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15)) +
+  theme(plot.title = element_text(size = 15)) +
+  theme(plot.subtitle = element_text(size = 15)) +
+  theme(axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
 
 
 
@@ -223,8 +279,16 @@ net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_nod
 schoolyear_p4 <- net_schools %>% 
   ggraph(layout='nicely') + geom_node_point(aes(col=as.factor(school_year), shape=as.factor(school_year))) + 
   geom_edge_link(alpha=0.1) + ggtitle('School 2','Year 2') + 
-  scale_color_discrete(name='School Year') +
-  scale_shape(name='School Year')
+  scale_color_discrete(name='School Year', na.translate = F) +
+  scale_shape(name='School Year', na.translate = F) + theme_bw() +
+  theme(axis.title = element_blank()) + 
+  theme(axis.text.x = element_blank()) + 
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15)) +
+  theme(plot.title = element_text(size = 15)) +
+  theme(plot.subtitle = element_text(size = 15)) +
+  theme(axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
 
 # net_schools_ref <-tbl_graph(nodes = schools_ref_node %>% filter(school==4),edges=schools_ref_edge %>% filter(school==4))
 # 
@@ -248,8 +312,16 @@ net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_nod
 sex_p1 <- net_schools %>% 
   ggraph(layout='nicely') + geom_node_point(aes(col=sex, shape=sex)) + 
   geom_edge_link(alpha=0.1) + ggtitle('School 1','Year 1') + 
-  scale_color_discrete(name='Gender') +
-  scale_shape(name='Gender')
+  scale_color_discrete(name='Gender', na.translate = F) +
+  scale_shape(name='Gender', na.translate = F) + theme_bw() +
+  theme(axis.title = element_blank()) + 
+  theme(axis.text.x = element_blank()) + 
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15)) +
+  theme(plot.title = element_text(size = 15)) +
+  theme(plot.subtitle = element_text(size = 15)) +
+  theme(axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
 
 
 net_schools <-tbl_graph(edges=schools_edge %>% filter(school==1 & year==2) %>% select(from,to))
@@ -260,8 +332,16 @@ net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_nod
 sex_p2 <- net_schools %>% 
   ggraph(layout='nicely') + geom_node_point(aes(col=sex, shape=sex)) + 
   geom_edge_link(alpha=0.1) + ggtitle('School 1','Year 2') + 
-  scale_color_discrete(name='Gender') +
-  scale_shape(name='Gender')
+  scale_color_discrete(name='Gender', na.translate = F) +
+  scale_shape(name='Gender', na.translate = F) + theme_bw() +
+  theme(axis.title = element_blank()) + 
+  theme(axis.text.x = element_blank()) + 
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15)) +
+  theme(plot.title = element_text(size = 15)) +
+  theme(plot.subtitle = element_text(size = 15)) +
+  theme(axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
 
 
 net_schools <-tbl_graph(edges=schools_edge %>% filter(school==2 & year==1) %>% select(from,to))
@@ -272,8 +352,16 @@ net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_nod
 sex_p3 <- net_schools %>% 
   ggraph(layout='nicely') + geom_node_point(aes(col=sex, shape=sex)) + 
   geom_edge_link(alpha=0.1) + ggtitle('School 2','Year 1') + 
-  scale_color_discrete(name='Gender') +
-  scale_shape(name='Gender')
+  scale_color_discrete(name='Gender', na.translate = F) +
+  scale_shape(name='Gender', na.translate = F) + theme_bw() +
+  theme(axis.title = element_blank()) + 
+  theme(axis.text.x = element_blank()) + 
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15)) +
+  theme(plot.title = element_text(size = 15)) +
+  theme(plot.subtitle = element_text(size = 15)) +
+  theme(axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
 
 
 
@@ -285,8 +373,16 @@ net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_nod
 sex_p4 <- net_schools %>% 
   ggraph(layout='nicely') + geom_node_point(aes(col=sex, shape=sex)) + 
   geom_edge_link(alpha=0.1) + ggtitle('School 2','Year 2') + 
-  scale_color_discrete(name='Gender') +
-  scale_shape(name='Gender')
+  scale_color_discrete(name='Gender', na.translate = F) +
+  scale_shape(name='Gender', na.translate = F) + theme_bw() +
+  theme(axis.title = element_blank()) + 
+  theme(axis.text.x = element_blank()) + 
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15)) +
+  theme(plot.title = element_text(size = 15)) +
+  theme(plot.subtitle = element_text(size = 15)) +
+  theme(axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
 
 # net_schools_ref <-tbl_graph(nodes = schools_ref_node %>% filter(school==4),edges=schools_ref_edge %>% filter(school==4))
 # 
@@ -310,8 +406,16 @@ net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_nod
 drink_p1 <- net_schools %>% 
   ggraph(layout='nicely') + geom_node_point(aes(col=shares_drinks, shape=shares_drinks)) + 
   geom_edge_link(alpha=0.1) + ggtitle('School 1','Year 1') + 
-  scale_color_discrete(name='Shares Drinks') +
-  scale_shape(name='Shares Drinks')
+  scale_color_discrete(name='Shares Drinks', na.translate = F) +
+  scale_shape(name='Shares Drinks', na.translate = F) + theme_bw() +
+  theme(axis.title = element_blank()) + 
+  theme(axis.text.x = element_blank()) + 
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15)) +
+  theme(plot.title = element_text(size = 15)) +
+  theme(plot.subtitle = element_text(size = 15)) +
+  theme(axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
 
 
 net_schools <-tbl_graph(edges=schools_edge %>% filter(school==1 & year==2) %>% select(from,to))
@@ -322,8 +426,16 @@ net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_nod
 drink_p2 <- net_schools %>% 
   ggraph(layout='nicely') + geom_node_point(aes(col=shares_drinks, shape=shares_drinks)) + 
   geom_edge_link(alpha=0.1) + ggtitle('School 1','Year 2') + 
-  scale_color_discrete(name='Shares Drinks') +
-  scale_shape(name='Shares Drinks')
+  scale_color_discrete(name='Shares Drinks', na.translate = F) +
+  scale_shape(name='Shares Drinks', na.translate = F) + theme_bw() +
+  theme(axis.title = element_blank()) + 
+  theme(axis.text.x = element_blank()) + 
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15)) +
+  theme(plot.title = element_text(size = 15)) +
+  theme(plot.subtitle = element_text(size = 15)) +
+  theme(axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
 
 
 net_schools <-tbl_graph(edges=schools_edge %>% filter(school==2 & year==1) %>% select(from,to))
@@ -334,8 +446,16 @@ net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_nod
 drink_p3 <- net_schools %>% 
   ggraph(layout='nicely') + geom_node_point(aes(col=shares_drinks, shape=shares_drinks)) + 
   geom_edge_link(alpha=0.1) + ggtitle('School 2','Year 1') + 
-  scale_color_discrete(name='Shares Drinks') +
-  scale_shape(name='Shares Drinks')
+  scale_color_discrete(name='Shares Drinks', na.translate = F) +
+  scale_shape(name='Shares Drinks', na.translate = F) + theme_bw() +
+  theme(axis.title = element_blank()) + 
+  theme(axis.text.x = element_blank()) + 
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15)) +
+  theme(plot.title = element_text(size = 15)) +
+  theme(plot.subtitle = element_text(size = 15)) +
+  theme(axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
 
 net_schools <-tbl_graph(edges=schools_edge %>% filter(school==2 & year==2) %>% select(from,to))
 
@@ -345,8 +465,16 @@ net_schools <-tbl_graph(nodes = as_tibble(net_schools) %>% left_join(schools_nod
 drink_p4 <- net_schools %>% 
   ggraph(layout='nicely') + geom_node_point(aes(col=shares_drinks, shape=shares_drinks)) + 
   geom_edge_link(alpha=0.1) + ggtitle('School 2','Year 2') + 
-  scale_color_discrete(name='Shares Drinks') +
-  scale_shape(name='Shares Drinks')
+  scale_color_discrete(name='Shares Drinks', na.translate = F) +
+  scale_shape(name='Shares Drinks', na.translate = F) + theme_bw() +
+  theme(axis.title = element_blank()) + 
+  theme(axis.text.x = element_blank()) + 
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15)) +
+  theme(plot.title = element_text(size = 15)) +
+  theme(plot.subtitle = element_text(size = 15)) +
+  theme(axis.ticks.x = element_blank(), axis.ticks.y = element_blank())
 
 # net_schools_ref <-tbl_graph(nodes = schools_ref_node %>% filter(school==4),edges=schools_ref_edge %>% filter(school==4))
 # 
@@ -376,25 +504,29 @@ fixed_layout <- create_layout(graph = net_schools, layout = 'nicely')
 summary_p1 <- net_schools %>% 
   ggraph(layout=fixed_layout) + geom_node_point(aes(col=CC_1, shape=CC_1)) + 
   geom_edge_link(alpha=0.1) + 
-  scale_color_discrete(name='Type',labels=type_levels) +
-  scale_shape_manual(name='Type',values=c(1:length(type_levels)),labels=type_levels) + ggtitle('Strain Type')
+  theme_bw() +
+  scale_color_discrete(name='Sequence Type',labels=type_levels) +
+  scale_shape_manual(name='Sequence Type',values=c(1:length(type_levels)),labels=type_levels) + ggtitle('Sequence Type') 
 
 summary_p2 <- net_schools %>% 
   ggraph(layout=fixed_layout) + geom_node_point(aes(col=sex, shape=sex)) + 
   geom_edge_link(alpha=0.1) + 
+  theme_bw() +
   scale_color_manual(name='Gender',values=brewer.pal(8,'Set1')[c(1,3)]) +
   scale_shape_manual(name='Gender',values=c(18,19))  + ggtitle('Gender')     
 
 summary_p3 <- net_schools %>% 
   ggraph(layout=fixed_layout) + geom_node_point(aes(col=shares_drinks, shape=shares_drinks)) + 
   geom_edge_link(alpha=0.1) +
-   scale_color_manual(name='Shares Drinks',values=brewer.pal(8,'Accent')[c(5,6)]) +
+  theme_bw() +
+  scale_color_manual(name='Shares Drinks',values=brewer.pal(8,'Accent')[c(5,6)]) +
   scale_shape_manual(name='Shares Drinks',values=c(15,17)) + ggtitle('Shares Drinks')     
 
 summary_p4 <- net_schools %>% 
   ggraph(layout=fixed_layout) + geom_node_point(aes(col=as.factor(school_year), shape=as.factor(school_year))) + 
   geom_edge_link(alpha=0.1) +
-   scale_color_manual(name='School Year',values=brewer.pal(4,'Dark2')) +
+  theme_bw() +
+  scale_color_manual(name='School Year',values=brewer.pal(4,'Dark2')) +
   scale_shape_manual(name='School Year',values=c(21,22,23,24)) + ggtitle('School Year')    
 
 
@@ -527,18 +659,44 @@ quantiles <- function(x){data.frame(y=median(x),ymin=quantile(x,0.025),ymax=quan
 
 require(patchwork)
 p1=ggplot(boot_table,aes(x=factor(school),y=transitivity,col=factor(year))) + stat_summary(fun.data=quantiles,position=position_dodge(0.5)) + ylab('Clustering Coefficient') +
-  xlab('School') + labs(col='year')
+  xlab('School') + labs(col='Year') + theme_bw() +
+  theme(axis.title=element_text(size=15)) + 
+  theme(axis.text.x = element_text(size = 15)) + 
+  theme(axis.text.y = element_text(size = 15)) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15))
+
 p2=ggplot(boot_table,aes(x=factor(school),y=mutual,col=factor(year))) + stat_summary(fun.data=quantiles,position=position_dodge(0.5)) + ylab('Reciprocity') +
-  xlab('School') + labs(col='year')
+  xlab('School') + labs(col='Year') + theme_bw() +
+  theme(axis.title=element_text(size=15)) + 
+  theme(axis.text.x = element_text(size = 15)) + 
+  theme(axis.text.y = element_text(size = 15)) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15))
+
 p3=ggplot(boot_table,aes(x=factor(school),y=mean_dist,col=factor(year))) + stat_summary(fun.data=quantiles,position=position_dodge(0.5)) + ylab('Mean Distance') +
-  xlab('School') + labs(col='year')
-
-
+  xlab('School') + labs(col='Year') + theme_bw() +
+  theme(axis.title=element_text(size=15)) + 
+  theme(axis.text.x = element_text(size = 15)) + 
+  theme(axis.text.y = element_text(size = 15)) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15))
 
 p4=ggplot(boot_table,aes(x=factor(school),y=communities_walk,col=factor(year))) + stat_summary(fun.data=quantiles,position=position_dodge(0.5))+ ylab('No. of Communities')  +
-  xlab('School') + labs(col='year')
+  xlab('School') + labs(col='Year') + theme_bw() +
+  theme(axis.title=element_text(size=15)) + 
+  theme(axis.text.x = element_text(size = 15)) + 
+  theme(axis.text.y = element_text(size = 15)) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15))
+
 p5=ggplot(boot_table,aes(x=factor(school),y=part_per_walk,col=factor(year))) + stat_summary(fun.data=quantiles,position=position_dodge(0.5))+ ylab('Community Size')  +
-  xlab('School') + labs(col='year')
+  xlab('School') + labs(col='Year') + theme_bw() +
+  theme(axis.title=element_text(size=15)) + 
+  theme(axis.text.x = element_text(size = 15)) + 
+  theme(axis.text.y = element_text(size = 15)) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15))
 
 print((p1 + p2 + p3) / (p4 + p5) + plot_layout(guides = 'collect')  )
 
