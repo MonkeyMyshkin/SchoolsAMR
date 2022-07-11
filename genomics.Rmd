@@ -1,0 +1,809 @@
+---
+title: "genomics"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load required libraries
+
+```{r load_libraries, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+
+library(tidyverse)
+library(reshape2)
+library(tidygraph)
+library(ggraph)
+library(igraph)
+library(patchwork)
+library(ggtree)
+library(ggnewscale)
+library(phytools)
+library(ggridges)
+library(EMT)
+```
+
+## Load functions
+
+```{r load_functions, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+
+###############
+## FUNCTIONS ##
+###############
+
+############################################################################
+## Function to read in SNP alignment in fasta format, calculate pairwise  ##
+## SNP distances using the pairsnp library and convert the pairsnp matrix ##
+## into a long data frame.                                                ##
+############################################################################
+
+alignmentToDistances <- function(fastaAlignment){
+  
+  ##############################
+  ## Requires pairsnp library ##
+  ##############################
+  
+  pairwiseDists <- pairsnp::snp_dist(fastaAlignment)
+
+  pairwiseDistsDecon <- data.frame( t(combn(colnames(pairwiseDists),2)),
+                                  dist=t(pairwiseDists)[lower.tri(pairwiseDists)] )
+
+  colnames(pairwiseDistsDecon) <- c("Taxon1", "Taxon2", "dist")
+  
+  return(pairwiseDistsDecon)
+
+}
+```
+
+## Read in metadata
+
+```{r load_metadata, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+#############################################
+## Read in and process mykrobe AMR results ##
+#############################################
+
+mykrobeReadDFfilteredWide <- read_csv("./data/all_Mykrobe_results.csv")
+
+######################################
+## Read in metadata for all samples ##
+######################################
+
+allMetadata <- read_csv("./data/all_metadata.csv")
+
+############################################
+## Add susceptibility data to allMetadata ##
+############################################
+
+allMetadataSusc <- allMetadata %>% 
+  left_join(mykrobeReadDFfilteredWide, by = c("id" = "sample"))
+```
+
+## Read in phylogenetic tree of all samples
+
+```{r load_phylogeny, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+
+#########################
+## Read in iqtree tree ##
+#########################
+
+schoolsCarriagetree <- read.tree("./data/schools_carriage_core_gene_alignment_snps.aln.treefile")
+
+########################
+## Midpoint root tree ##
+########################
+
+schoolsCarriagetreeRooted <- midpoint.root(schoolsCarriagetree)
+
+################################################
+## Convert lane id tip labels to sample names ##
+################################################
+
+schoolsCarriagetreeRooted$tip.label <- allMetadata$name[match(schoolsCarriagetreeRooted$tip.label, allMetadata$id)]
+
+###############################################################
+## Assign colours for susceptibility data and other metadata ##
+###############################################################
+
+suscColourStrips <- c("R" = "#ff0000","S" = "#ffffff","r" = "#ff8080")
+
+colourList <- c("#0000cc","#ff0000","#660000","#9900ff","#ff66cc","#006600","#9999ff","#996600","#663366","#99cc66",
+                "#c4dc00","#ff6600","#666600","#cc9933","#99cc00","#cc99ff","#ccccff","#ffcc66","#336666","#000066","#666666","#663300","#1dc39f",
+                "#ddff33","#ffd700","#ffac2a","#c4dc00","#8f007f","#444c04","#e8ff2a","#8f0038","#388f00","#dc00c4","#1dc34f","#c34c1d","#ff6666",
+                "#ffcccc", "#FFFFD9", "#EDF8B1", "#C7E9B4", "#7FCDBB")
+
+#############################################
+## Create metadata dfs for ggtree plotting ##
+#############################################
+
+schoolsCarriagetreeMetaDFcc <- as.data.frame(allMetadataSusc[,4])
+
+rownames(schoolsCarriagetreeMetaDFcc) = allMetadataSusc$name
+
+schoolsCarriagetreeMetaDFsource <- as.data.frame(allMetadataSusc[,3])
+
+rownames(schoolsCarriagetreeMetaDFsource) = allMetadataSusc$name
+
+schoolsCarriagetreeMetaDFsusc <- as.data.frame(allMetadataSusc[,6:17])
+
+rownames(schoolsCarriagetreeMetaDFsusc) = allMetadataSusc$name
+```
+
+## Plot phylogenetic tree of all samples (Figure 3A)
+
+```{r phylogeny_plot, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE, fig.path='Figs/',fig.width=8, fig.height=0.85*8}
+
+schoolsCarriagetreePlot <- ggtree(schoolsCarriagetreeRooted) +
+  geom_tiplab(align = F, 
+              size = 0.5) +
+  geom_treescale(x = 0.0001, y = 150) +
+  xlim_tree(0.001) +
+  theme_tree()
+  
+schoolsCarriagetreePlotMeta <- gheatmap(schoolsCarriagetreePlot, 
+                                        schoolsCarriagetreeMetaDFcc,
+                                        offset = 0.001,
+                                        width = 0.05, 
+                                        colnames = T,
+                                        colnames_angle=90,
+                                        colnames_position = "top",
+                                        hjust = 0,
+                                        font.size = 4) +
+  scale_fill_manual(values = colourList) +
+  coord_cartesian(clip = "off")
+
+schoolsCarriagetreePlotMeta2 <- schoolsCarriagetreePlotMeta + new_scale_fill()
+
+schoolsCarriagetreePlotMeta3 <- gheatmap(schoolsCarriagetreePlotMeta2, 
+                                        schoolsCarriagetreeMetaDFsource,
+                                        offset = 0.0015,
+                                        width = 0.05, 
+                                        colnames = T,
+                                        colnames_angle=90,
+                                        colnames_position = "top",
+                                        hjust = 0,
+                                        font.size = 4) +
+  scale_fill_manual(values = colourList) +
+  coord_cartesian(clip = "off")
+
+schoolsCarriagetreePlotMeta4 <- schoolsCarriagetreePlotMeta3 + new_scale_fill()
+
+schoolsCarriagetreePlotMeta5 <- gheatmap(schoolsCarriagetreePlotMeta4, 
+                                        schoolsCarriagetreeMetaDFsusc,
+                                        offset = 0.002,
+                                        width = 1, 
+                                        colnames = T,
+                                        colnames_angle=90,
+                                        colnames_position = "top",
+                                        hjust = 0,
+                                        font.size = 4) +
+  scale_fill_manual(values = suscColourStrips) +
+  coord_cartesian(clip = "off")
+```
+
+## Calculate ST distributions for each source
+
+```{r r ST_dists, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+
+###################################################
+## Distribution of STs between Year 1 and Year 2 ##
+###################################################
+
+colourList <- c("#0000cc","#ff0000","#660000","#9900ff","#ff66cc","#006600",
+                "#9999ff","#996600","#663366","#99cc66","#c4dc00","#ff6600",
+                "#666600","#cc9933","#99cc00","#cc99ff","#ccccff","#ffcc66",
+                "#336666","#000066","#666666","#663300","#1dc39f","#ddff33",
+                "#ffd700","#ffac2a","#c4dc00","#8f007f","#444c04","#e8ff2a",
+                "#8f0038","#388f00","#dc00c4","#1dc34f","#c34c1d","#ff6666",
+                "#ffcccc", "#FFFFD9", "#EDF8B1", "#C7E9B4", "#7FCDBB")
+
+##########################
+## Assign colours to CC ##
+##########################
+
+names(colourList) <- unique(allMetadata$CC)
+
+allMetadataSchools <- allMetadata %>% 
+  filter(Source == "School1" | Source == "School2")
+
+##############
+## School 1 ##
+##############
+
+School1MetadataGrouped <- allMetadataSchools %>% 
+  filter(Source == "School1") %>% 
+  group_by(Year, CC)  %>% 
+  summarize(n=n()) %>% 
+  mutate(freq=n/sum(n))
+
+##############
+## School 2 ##
+##############
+
+School2MetadataGrouped <- allMetadataSchools %>% 
+  filter(Source == "School2") %>% 
+  group_by(Year, CC)  %>% 
+  summarize(n=n()) %>% 
+  mutate(freq=n/sum(n))
+
+##############
+## CARRIAGE ##
+##############
+
+allMetadataCarriage <- allMetadata %>% 
+  filter(Source == "Carriage")
+
+CarriageMetadataGrouped <- allMetadataCarriage %>% 
+  group_by(CC)  %>% 
+  summarize(n=n()) %>% 
+  mutate(freq=n/sum(n)) %>% 
+  mutate(Source = paste0("Carriage"))
+```
+
+## Plot ST distributions for each source (Figure 3B)
+
+```{r ST_plot, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE, fig.path='Figs/',fig.width=8, fig.height=0.85*8}
+
+##############
+## School 1 ##
+##############
+
+School1STplot <- ggplot(data = School1MetadataGrouped, 
+                          aes(x = as.factor(Year),
+                              fill = CC, 
+                              group = CC)) + 
+  geom_bar(aes(y=freq), 
+           stat="identity", 
+           position = "stack", 
+           linetype = 1, 
+           colour = 'black') + 
+  xlab("Year") + 
+  ylab("Frequency") + 
+  theme_bw() +
+  scale_fill_manual(name = "CC", values = colourList) +
+  theme(axis.title=element_text(size=15)) + 
+  theme(axis.text.x = element_text(size = 15)) + 
+  theme(axis.text.y = element_text(size = 15)) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15))
+
+##############
+## School 2 ##
+##############
+
+School2STplot <- ggplot(data = School2MetadataGrouped, 
+                          aes(x = as.factor(Year),
+                              fill = CC, 
+                              group = CC)) + 
+  geom_bar(aes(y=freq), 
+           stat="identity", 
+           position = "stack", 
+           linetype = 1, 
+           colour = 'black') + 
+  xlab("Year") + 
+  ylab("Frequency") + 
+  theme_bw() +
+  scale_fill_manual(name = "CC", values = colourList)+
+  theme(axis.title=element_text(size=15)) + 
+  theme(axis.text.x = element_text(size = 15)) + 
+  theme(axis.text.y = element_text(size = 15)) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15))
+
+##############
+## CARRIAGE ##
+##############
+
+CarriageSTplot <- ggplot(data = CarriageMetadataGrouped, 
+                          aes(x = as.factor(Source),
+                              fill = CC, 
+                              group = CC)) + 
+  geom_bar(aes(y=freq), 
+           stat="identity", 
+           position = "stack", 
+           linetype = 1, 
+           colour = 'black') + 
+  xlab("Year") + 
+  ylab("Frequency") + 
+  theme_bw() +
+  scale_fill_manual(name = "CC", values = colourList) +
+  theme(axis.title=element_text(size=15)) + 
+  theme(axis.text.x = element_text(size = 15)) + 
+  theme(axis.text.y = element_text(size = 15)) +
+  theme(legend.title = element_text(size = 15)) +
+  theme(legend.text = element_text(size = 15))
+
+###################
+## Combined plot ##
+###################
+
+(School1STplot|School2STplot|CarriageSTplot) + plot_layout(guides='collect')
+```
+## Plot phylogenies for school 1 year 1 and year 2 (only swab 1)(Figure 4A and 4C)
+
+```{r school1_phylo_plot, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE, fig.path='Figs/',fig.width=8, fig.height=0.85*8}
+
+#############################
+## Plot Year 1 swab 1 tree ##
+#############################
+
+School1Yr1S1Tree <- read.tree("./data/school1_year_1_swab1_core_gene_alignment_snps.aln.treefile")
+
+########################
+## Midpoint root tree ##
+########################
+
+School1Yr1S1TreeRooted <- midpoint.root(School1Yr1S1Tree)
+
+################################################
+## Convert lane id tip labels to sample names ##
+################################################
+
+School1Yr1S1TreeRooted$tip.label <- allMetadata$name[match(School1Yr1S1TreeRooted$tip.label, allMetadata$id)]
+
+#############################
+## Plot tree with metadata ##
+#############################
+
+School1Yr1S1TreePlot <- ggtree(School1Yr1S1TreeRooted) +
+  geom_tiplab(align = F, 
+              size = 2) +
+  geom_treescale(x = 0.0001, y = 50) +
+  xlim_tree(0.001) +
+  theme_tree()
+  
+School1Yr1S1TreePlotMeta <- gheatmap(School1Yr1S1TreePlot, 
+                                        schoolsCarriagetreeMetaDFcc,
+                                        color = NA,
+                                        offset = 0.001,
+                                        width = 0.05, 
+                                        colnames = T,
+                                        colnames_angle=90,
+                                        colnames_position = "top",
+                                        hjust = 0,
+                                        font.size = 4) +
+  scale_fill_manual(values = colourList) +
+  coord_cartesian(clip = "off")
+
+School1Yr1S1TreePlotMeta2 <- School1Yr1S1TreePlotMeta + new_scale_fill()
+
+School1Yr1S1TreePlotMeta3 <- gheatmap(School1Yr1S1TreePlotMeta2, 
+                                        schoolsCarriagetreeMetaDFsusc,
+                                        color = NA,
+                                        offset = 0.0015,
+                                        width = 1, 
+                                        colnames = T,
+                                        colnames_angle=90,
+                                        colnames_position = "top",
+                                        hjust = 0,
+                                        font.size = 4) +
+  scale_fill_manual(values = suscColourStrips) +
+  coord_cartesian(clip = "off")
+
+#############################
+## Plot Year 2 swab 1 tree ##
+#############################
+
+School1Yr2S1Tree <- read.tree("./data/school1_year_2_swab1_core_gene_alignment_snps.aln.treefile")
+
+########################
+## Midpoint root tree ##
+########################
+
+School1Yr2S1TreeRooted <- midpoint.root(School1Yr2S1Tree)
+
+################################################
+## Convert lane id tip labels to sample names ##
+################################################
+
+School1Yr2S1TreeRooted$tip.label <- allMetadata$name[match(School1Yr2S1TreeRooted$tip.label, allMetadata$id)]
+
+#############################
+## Plot tree with metadata ##
+#############################
+
+School1Yr2S1TreePlot <- ggtree(School1Yr2S1TreeRooted) +
+  geom_tiplab(align = F, 
+              size = 2) +
+  geom_treescale(x = 0.0001, y = 50) +
+  xlim_tree(0.001) +
+  theme_tree()
+  
+School1Yr2S1TreePlotMeta <- gheatmap(School1Yr2S1TreePlot, 
+                                        schoolsCarriagetreeMetaDFcc,
+                                        color = NA,
+                                        offset = 0.001,
+                                        width = 0.05, 
+                                        colnames = T,
+                                        colnames_angle=90,
+                                        colnames_position = "top",
+                                        hjust = 0,
+                                        font.size = 4) +
+  scale_fill_manual(values = colourList) +
+  coord_cartesian(clip = "off")
+
+School1Yr2S1TreePlotMeta2 <- School1Yr2S1TreePlotMeta + new_scale_fill()
+
+School1Yr2S1TreePlotMeta3 <- gheatmap(School1Yr2S1TreePlotMeta2, 
+                                        schoolsCarriagetreeMetaDFsusc,
+                                        color = NA,
+                                        offset = 0.0015,
+                                        width = 1, 
+                                        colnames = T,
+                                        colnames_angle=90,
+                                        colnames_position = "top",
+                                        hjust = 0,
+                                        font.size = 4) +
+  scale_fill_manual(values = suscColourStrips) +
+  coord_cartesian(clip = "off")
+```
+
+## Create combined social and genetic networks for school 1
+
+```{r social_genetic_networks, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+
+###############################################################
+### Create network of all samples using SNP threshold of 50 ###
+###############################################################
+
+###########################################
+## Read in metadata for School 1 samples ##
+###########################################
+
+School1Metadata <- read_csv("./data/school1_metadata.csv")
+
+School1Metadata <- School1Metadata %>% 
+  separate(Student_sample, c(NA, "swab"), "-") %>% 
+  filter(swab == 1) %>% 
+  select(Lane_id, StudentID, ST, Year)
+
+######################
+### School1 Yr 1 ###
+######################
+
+############################################
+## Load in School1 Yr 1 social metadata ##
+############################################
+
+School1Yr1SocialMetadata <- read_csv("./data/Merged_school1.csv")
+
+School1Yr1SocialMetadata$Round1[is.na(School1Yr1SocialMetadata$Round1)] = '-'
+School1Yr1SocialMetadata$Round2[is.na(School1Yr1SocialMetadata$Round2)] = '-'
+School1Yr1SocialMetadata$Round2[School1Yr1SocialMetadata$Round2==''] = NA
+
+School1Yr1SocialMetadataFiltered <- School1Yr1SocialMetadata %>% 
+  select(StudentID, Class, Conversation, Home, Gender, Drinks, Round1, Round2)
+
+#############################
+## Extract social contacts ##
+#############################
+
+School1Yr1SocialContacts <- melt(School1Yr1SocialMetadata[,c(1,3:12)],id.vars = 'StudentID',value.name='contact')
+
+School1Yr1SocialContactsEdges <- data.frame(from = School1Yr1SocialContacts[,1], to = School1Yr1SocialContacts[,3], dist = NA, weight = 1)
+
+School1Yr1SocialContactsNodes <- data.frame(StudentID = unique(School1Yr1SocialContactsEdges$to[which(!is.element(School1Yr1SocialContactsEdges$to,
+                                                                                                               School1Yr1SocialContactsEdges$from))]),
+                                              Class = NA, Conversation = NA, Home = NA, Gender = NA, Drinks = NA, Round1 = NA, Round2 = NA)
+
+School1Yr1SocialContactsNodesAll <- rbind(School1Yr1SocialMetadataFiltered, School1Yr1SocialContactsNodes)
+
+#########################################
+## Join sequencing and social metadata ##
+#########################################
+
+School1Yr1MetadataAll <- left_join(School1Yr1SocialContactsNodesAll, School1Metadata, by = "StudentID") %>%
+  filter(!is.na(StudentID)) %>%
+  mutate(id = row_number()) 
+
+School1Yr1MetadataAll <- School1Yr1MetadataAll[,c(ncol(School1Yr1MetadataAll),1:ncol(School1Yr1MetadataAll)-1)]
+
+School1Yr1MetadataAllFiltered <- School1Yr1MetadataAll %>% 
+  filter(Round1 != 'NA')
+
+######################################################################
+## Convert StudentIDs in School1Yr1SocialContactsEdges to row IDs ##
+######################################################################
+
+School1Yr1SocialContactsEdgesID <- left_join(School1Yr1SocialContactsEdges, School1Yr1MetadataAll[,c(1,2)], by = c("from" = "StudentID")) %>% 
+  left_join(School1Yr1MetadataAll[,c(1,2)], by = c("to" = "StudentID")) %>% 
+  select(from.id = id.x, to.id = id.y, dist, weight) %>% 
+  filter(!is.na(from.id)) %>% 
+  filter(!is.na(to.id))
+
+#################################
+## Read in SNP fasta alignment ##
+#################################
+
+School1Yr1Alignment <- pairsnp::import_fasta_sparse("./data/school1_year_1_swab1_core_gene_alignment_snps.aln")
+
+#####################################################
+## Calculate pairwise SNP distances from alignment ##
+#####################################################
+
+School1Yr1PWdistsDecon <- alignmentToDistances(School1Yr1Alignment)
+
+###############################################################
+## Extract pairwise SNP comparisons <= 50 (edges of network) ##
+###############################################################
+
+School1Yr1PWdistsDeconEdges <- School1Yr1PWdistsDecon %>%
+  filter(dist <= 50) %>% 
+  select(Taxon1, Taxon2, dist)
+
+School1Yr1PWdistsDeconEdges <- School1Yr1PWdistsDeconEdges %>%
+  left_join(School1Yr1MetadataAll[,c(1,10)], by = c("Taxon1" = "Lane_id")) %>% 
+  dplyr::rename(from.id = id)
+
+School1Yr1PWdistsDeconEdges <- School1Yr1PWdistsDeconEdges %>% 
+  left_join(School1Yr1MetadataAll[,c(1,10)], by = c("Taxon2" = "Lane_id")) %>% 
+  select(from.id, to.id = id, dist)%>% 
+  filter(!is.na(from.id)) %>% 
+  filter(!is.na(to.id)) %>% 
+  mutate(weight = 1)
+
+###########################################
+## Join social data and sequencing edges ##
+###########################################
+
+School1Yr1EdgesAll <- rbind(School1Yr1SocialContactsEdgesID, School1Yr1PWdistsDeconEdges)
+
+###########################
+## Create network object ##
+###########################
+
+School1Yr1Routes <- tbl_graph(nodes = School1Yr1MetadataAll, edges = distinct(School1Yr1EdgesAll), directed = TRUE)
+
+School1Yr1RoutesSimplified <- simplify(School1Yr1Routes, remove.multiple = F, remove.loops = T)
+
+School1Yr1RoutesSimplified <- delete.vertices(School1Yr1RoutesSimplified,names(V(School1Yr1RoutesSimplified))=='NA')
+
+School1Yr1RoutesSimplified <- delete.vertices(School1Yr1RoutesSimplified,which(degree(School1Yr1RoutesSimplified)<=1))
+
+######################
+### School1 Yr 2 ###
+######################
+
+############################################
+## Load in School1 Yr 1 social metadata ##
+############################################
+
+School1Yr2SocialMetadata <- read_csv("./data/school1_yr2_social.csv")
+
+School1Yr2SocialMetadataFiltered <- School1Yr2SocialMetadata %>% 
+  select(study_id, sex, shares_drinks, pcr)
+
+#############################
+## Extract social contacts ##
+#############################
+
+School1Yr2SocialContacts <- melt(School1Yr2SocialMetadata[,c(3,9:18)],id.vars = 'study_id',value.name='contact')
+
+School1Yr2SocialContactsEdges <- data.frame(from = School1Yr2SocialContacts[,1], to = School1Yr2SocialContacts[,3], dist = NA, weight = 1)
+
+School1Yr2SocialContactsNodes <- data.frame(study_id = unique(School1Yr2SocialContactsEdges$to[which(!is.element(School1Yr2SocialContactsEdges$to,
+                                                                                                               School1Yr2SocialContactsEdges$from))]),
+                                              sex = NA, shares_drinks = NA, pcr = NA)
+
+School1Yr2SocialContactsNodesAll <- rbind(School1Yr2SocialMetadataFiltered, School1Yr2SocialContactsNodes)
+
+#########################################
+## Join sequencing and social metadata ##
+#########################################
+
+School1Yr2MetadataAll <- left_join(School1Yr2SocialContactsNodesAll, School1Metadata, by = c("study_id" = "StudentID")) %>%
+  filter(!is.na(study_id)) %>% 
+  mutate(id = row_number()) 
+
+School1Yr2MetadataAll <- School1Yr2MetadataAll[,c(ncol(School1Yr2MetadataAll),1:ncol(School1Yr2MetadataAll)-1)]
+
+######################################################################
+## Convert StudentIDs in School1Yr2SocialContactsEdges to row IDs ##
+######################################################################
+
+School1Yr2SocialContactsEdgesID <- left_join(School1Yr2SocialContactsEdges, School1Yr2MetadataAll[,c(1,2)], by = c("from" = "study_id")) %>% 
+  left_join(School1Yr2MetadataAll[,c(1,2)], by = c("to" = "study_id")) %>% 
+  select(from.id = id.x, to.id = id.y, dist, weight)%>% 
+  filter(!is.na(from.id)) %>% 
+  filter(!is.na(to.id))
+
+#################################
+## Read in SNP fasta alignment ##
+#################################
+
+School1Yr2Alignment <- pairsnp::import_fasta_sparse("./data/school1_year_2_swab1_core_gene_alignment_snps.aln")
+
+#####################################################
+## Calculate pairwise SNP distances from alignment ##
+#####################################################
+
+School1Yr2PWdistsDecon <- alignmentToDistances(School1Yr2Alignment)
+
+###############################################################
+## Extract pairwise SNP comparisons <= 50 (edges of network) ##
+###############################################################
+
+School1Yr2PWdistsDeconEdges <- School1Yr2PWdistsDecon %>%
+  filter(dist <= 50) %>% 
+  select(Taxon1, Taxon2, dist)
+
+School1Yr2PWdistsDeconEdges <- School1Yr2PWdistsDeconEdges %>%
+  left_join(School1Yr2MetadataAll[,c(1,6)], by = c("Taxon1" = "Lane_id")) %>% 
+  dplyr::rename(from.id = id)
+
+School1Yr2PWdistsDeconEdges <- School1Yr2PWdistsDeconEdges %>% 
+  left_join(School1Yr2MetadataAll[,c(1,6)], by = c("Taxon2" = "Lane_id")) %>% 
+  select(from.id, to.id = id, dist) %>%
+  filter(!is.na(from.id)) %>% 
+  filter(!is.na(to.id)) %>% 
+  mutate(weight = 1)
+
+###########################################
+## Join social data and sequencing edges ##
+###########################################
+
+School1Yr2EdgesAll <- rbind(School1Yr2SocialContactsEdgesID, School1Yr2PWdistsDeconEdges)
+
+###########################
+## Create network object ##
+###########################
+
+School1Yr2Routes <- tbl_graph(nodes = School1Yr2MetadataAll, edges = distinct(School1Yr2EdgesAll), directed = TRUE)
+
+School1Yr2RoutesSimplified <- simplify(School1Yr2Routes)
+
+School1Yr2RoutesSimplified <- delete.vertices(School1Yr2RoutesSimplified,names(V(School1Yr2RoutesSimplified))=='NA')
+
+School1Yr2RoutesSimplified <- delete.vertices(School1Yr2RoutesSimplified,which(degree(School1Yr2RoutesSimplified)<=1))
+
+```
+
+## Plot social and genetic networks for school 1 year 1 and year 2 (Figure 4B and 4D)
+
+```{r social_genetic_plot, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE, fig.path='Figs/',fig.width=8, fig.height=0.85*8}
+
+############
+## Year 1 ##
+############
+
+School1Yr1NetworkPlot <- ggraph(School1Yr1RoutesSimplified, layout = "nicely") + geom_edge_link(edge_colour = "gray80", edge_width = 0.2) + geom_edge_link(aes(filter = which_mutual(School1Yr1RoutesSimplified)), angle_calc = "none", edge_colour = 'darkgrey') + geom_node_point(aes(colour = Round1), size = 2) + theme_graph()
+
+School1Yr1NetworkPlotDists <- School1Yr1NetworkPlot + geom_edge_link(aes(label = dist, filter = !is.na(dist)), angle_calc = "along", edge_colour = 'red', edge_linetype = "dashed", label_dodge = unit(2.5,'mm'))
+
+############
+## Year 2 ##
+############
+
+School1Yr2NetworkPlot <- ggraph(School1Yr2RoutesSimplified, layout = "nicely") + geom_edge_link(edge_colour = "gray80", edge_width = 0.2) + geom_edge_link(aes(filter = which_mutual(School1Yr2RoutesSimplified)), angle_calc = "none", edge_colour = 'darkgrey') + geom_node_point(aes(colour = pcr),size = 2)  + theme_graph()
+
+School1Yr2NetworkPlotDists <- School1Yr2NetworkPlot + geom_edge_link(aes(label = dist, filter = !is.na(dist)), angle_calc = "along", edge_colour = 'red', edge_linetype = "dashed", label_dodge = unit(2.5,'mm')) + geom_node_text(aes(label = id), size = 2)
+
+```
+
+## Calculate within-student pairwise SNP distances for school 1
+
+```{r within_student_pwdists, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+
+#################################
+## Read in SNP fasta alignment ##
+#################################
+
+SchoolsAlignment <- pairsnp::import_fasta_sparse("./data/both_schools_core_gene_alignment_snps.fasta")
+
+#####################################################
+## Calculate pairwise SNP distances from alignment ##
+#####################################################
+
+SchoolsPWDists <- alignmentToDistances(SchoolsAlignment)
+
+###########################################
+## Read in metadata for School 1 samples ##
+###########################################
+
+allMetadataSchool1 <-allMetadata %>% 
+  filter(Source == "School1") %>% 
+  separate(name, c("Student", "Swab"), "-")
+
+SchoolsPWDists$Taxon1_StudentID <- allMetadataSchool1$Student[match(SchoolsPWDists$Taxon1, allMetadataSchool1$id)]
+
+SchoolsPWDists$Taxon2_StudentID <- allMetadataSchool1$Student[match(SchoolsPWDists$Taxon2, allMetadataSchool1$id)]
+
+SchoolsPWDists <- SchoolsPWDists %>% 
+  mutate(student_match = ifelse(Taxon1_StudentID == Taxon2_StudentID, paste("Same student"), paste("Different student")))
+
+SchoolsPWDistsSameStudent <- SchoolsPWDists %>%
+  filter(student_match == "Same student")
+
+SchoolsPWDistsSameStudent50SNPs <- SchoolsPWDistsSameStudent %>% 
+  filter(dist <= 50)
+
+```
+
+## Plot within-student diversity for school 1 (Figure S1)
+
+```{r withinstudent_plot, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE, fig.path='Figs/',fig.width=8, fig.height=0.85*8}
+
+SaPWSameStudentHist <- ggplot(data = SchoolsPWDistsSameStudent, 
+                              aes(x = dist)) + 
+  geom_histogram(bins = 50, 
+                 alpha = 0.8, 
+                 position = "identity") + 
+  theme_bw()  + 
+  xlab("Pairwise SNP distance") + 
+  ylab("Frequency") + 
+  theme(axis.title=element_text(size=15)) + 
+  theme(axis.text.x = element_text(size = 15)) + 
+  theme(axis.text.y = element_text(size = 15))
+
+SaPWSameStudentHist50SNPs <- ggplot(data = SchoolsPWDistsSameStudent50SNPs, 
+                                    aes(x = dist)) + 
+  geom_histogram(bins = 50, 
+                 alpha = 0.8, 
+                 position = "identity") + 
+  theme_bw()  + 
+  xlab("Pairwise SNP distance") + 
+  ylab("Frequency") + 
+  theme(axis.title=element_text(size=15)) + 
+  theme(axis.text.x = element_text(size = 15)) + 
+  theme(axis.text.y = element_text(size = 15))
+
+SaPWSameStudentHistPlots <- SaPWSameStudentHist|SaPWSameStudentHist50SNPs
+
+SaPWSameStudentHistPlots + plot_annotation(tag_levels = 'A') & theme(plot.tag = element_text(size = 30))
+
+```
+
+## Calculate pairwise SNP distances for schools and carriage
+
+```{r calc_pwdists, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+#######################
+## Read in alignment ##
+#######################
+
+paper1alignment <- pairsnp::import_fasta_sparse("./data/schools_carriage_core_gene_alignment_snps.fasta")
+
+paper1pwDists <- alignmentToDistances(paper1alignment)
+
+########################################
+## Add source to pairwise distance df ##
+########################################
+
+paper1pwDistsMetadata <- paper1pwDists %>% 
+  left_join(allMetadataSusc[,c(1,3)], by = c("Taxon1" = "id")) %>% 
+  left_join(allMetadataSusc[,c(1,3)], by = c("Taxon2" = "id")) %>% 
+  mutate(source_match = ifelse(Source.x == "Carriage" & Source.y == "Carriage", paste("Carriage only"),
+                               ifelse(Source.x == "Carriage" & Source.y == "School1", paste("Carriage-School 1"),
+                                      ifelse(Source.y == "Carriage" & Source.x == "School1", paste("Carriage-School 1"),
+                                             ifelse(Source.x == "Carriage" & Source.y == "School2", paste("Carriage-School 2"),
+                                                    ifelse(Source.y == "Carriage" & Source.x == "School2", paste("Carriage-School 2"),
+                                                           ifelse(Source.x == "School1" & Source.y == "School1", paste("School 1 only"),
+                                                                  paste("School 2 only"))))))))
+
+######################################
+## Summarise pairwise SNP distances ##
+######################################
+
+paper1pwDistsMetadataSummary <- paper1pwDistsMetadata %>% 
+  group_by(source_match) %>% 
+  summarise(min_dist = min(dist),
+            median_dist = median(dist),
+            max_dist = max(dist))
+```
+
+## Plot pairwise SNP distances for all source pairs (Figure S7)
+
+```{r pairwisesnp_plot, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE, fig.path='Figs/',fig.width=8, fig.height=0.85*8}
+
+paper1pwDistsMetadataRidgePlot <- ggplot(data = paper1pwDistsMetadata,
+                                         aes(x = dist,
+                                             y = source_match,
+                                             fill = source_match)) +
+  geom_density_ridges(scale = 0.9) +
+  theme_bw() +
+  labs(x = "Pairwise SNP distance", y = "") +
+  theme(axis.title=element_text(size=15)) + 
+  theme(axis.text.x = element_text(size = 15)) + 
+  theme(axis.text.y = element_text(size = 15)) +
+  theme(legend.position = "none")
+```
+
