@@ -18,6 +18,7 @@ require(ggplot2)
 require(ggraph)
 require(patchwork)
 require(RColorBrewer)
+require(prevalence)
 
 
 schools_node <- as_tibble(read.csv('./data/schools_node.csv'))  %>% select(-X)
@@ -46,6 +47,15 @@ require(prevalence)
 school_prev <- propCI(school_prev$p,school_prev$n,method='exact') %>% select(-method,-level) %>% mutate(school=school_prev$school,year=school_prev$year,.before=1) %>% mutate_each(funs(round(100*., 0)),-school,-year,-x,-n)
 
 write.csv(school_prev,file='school_prev_by_year.csv')
+
+# Prevalence by gender (Positive in either year)
+
+school_prev <- (schools_node %>% group_by(sex) %>% summarise(p=sum(isolate_1 | isolate_2),n=length(isolate_1))) %>% drop_na()
+
+school_prev <- propCI(school_prev$p,school_prev$n,method='exact') %>% select(-method,-level) %>% mutate(sex=school_prev$sex,.before=1) %>% mutate_each(funs(round(100*., 0)),-sex,-x,-n)
+
+write.csv(school_prev,file='aggregate_prev_by_gender.csv')
+
 
 # Prevalence by school, year, gender (Positive in either year)
 
@@ -741,8 +751,8 @@ boot_table %>% tbl_strata(strata = c(school,year),
                                                                      mean_dist='Mean Distance',
                                                                      communities_walk='No. of Communities',
                                                                      part_per_walk = 'Community Size'),
-                                                          statistic = list(all_continuous() ~ "{mean} ({ll}, {ul})"))) %>%
-  modify_header(starts_with('stat') ~ "Mean (95% CI)") %>%
+                                                          statistic = list(all_continuous() ~ "{median} ({ll}, {ul})"))) %>%
+  modify_header(starts_with('stat') ~ "Median (95% CI)") %>%
   modify_footnote(everything() ~ NA_character_)
   
 
@@ -758,7 +768,7 @@ boot_table %>% filter(school=='School 1') %>% tbl_summary(include=c('assortativi
                                                                      assortativity_df = 'Assortativity (Shares Drinks F)',
                                                                      assortativity_iso1 = 'Assortativity (Swab 1)',
                                                                      assortativity_iso2 = 'Assortativity (Swab 2)'),
-                                                          statistic = list(all_continuous() ~ "{mean} ({ll}, {ul})"),
+                                                          statistic = list(all_continuous() ~ "{median} ({ll}, {ul})"),
                                                           by='year') %>% modify_header(stat_1 ~ "Year 1 (95% CI)") %>%
                                                           modify_header(stat_2 ~ "Year 2 (95% CI)") %>%
   modify_footnote(everything() ~ NA_character_)
